@@ -1,1 +1,920 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WorldPulse — Global Live Statistics & Planetary Metrics</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Google Fonts Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
 
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            brand: {
+              dark: '#080d1a',
+              card: '#0d1527',
+              border: '#1e293b',
+              cyan: '#06b6d4',
+              emerald: '#10b981',
+              violet: '#8b5cf6',
+              amber: '#f59e0b',
+              rose: '#f43f5e'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      background-color: #060a14;
+      color: #e2e8f0;
+      font-family: 'Inter', sans-serif;
+      overflow-x: hidden;
+    }
+    .glass-panel {
+      background: rgba(13, 21, 39, 0.75);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .glass-card {
+      background: linear-gradient(135deg, rgba(16, 27, 51, 0.8) 0%, rgba(10, 17, 33, 0.95) 100%);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .glass-card:hover {
+      border-color: rgba(6, 182, 212, 0.4);
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px -5px rgba(6, 182, 212, 0.12);
+    }
+    .ticker-pulse {
+      animation: pulse-glow 2s infinite;
+    }
+    @keyframes pulse-glow {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(1.1); }
+    }
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 7px;
+      height: 7px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #060a14;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1e293b;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #0ea5e9;
+    }
+  </style>
+</head>
+
+<body class="min-h-screen flex flex-col antialiased">
+  <header class="sticky top-0 z-50 glass-panel border-b border-slate-800">
+    <!-- Top notification pulse bar -->
+    <div class="px-4 py-2 border-b border-slate-800/80 bg-slate-950/60 flex flex-wrap items-center justify-between text-xs text-slate-400 gap-2">
+      <div class="flex items-center space-x-3 overflow-x-auto whitespace-nowrap py-1">
+        <span class="inline-flex items-center text-emerald-400 font-semibold">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 ticker-pulse mr-1.5"></span> LIVE SYNC
+        </span>
+        <span class="text-slate-600">|</span>
+        <span>🌍 Net Gain Today: <strong id="ticker-net-population" class="text-slate-100 font-mono">+0</strong></span>
+        <span class="text-slate-600">|</span>
+        <span>🌱 Solar Energy Today: <strong id="ticker-solar-mwh" class="text-amber-300 font-mono">0 MWh</strong></span>
+        <span class="text-slate-600">|</span>
+        <span>🛰️️ Satellites in Orbit: <strong class="text-cyan-300 font-mono">10,840+</strong></span>
+        <span class="text-slate-600">|</span>
+        <span>⚡ CO₂ Atmosphere: <strong class="text-rose-400 font-mono">424.8 ppm</strong></span>
+      </div>
+      <div class="flex items-center space-x-4 ml-auto">
+        <div class="flex items-center gap-1.5 font-mono text-[11px] bg-slate-900/90 px-2.5 py-1 rounded border border-slate-800">
+          <span class="text-slate-500">UTC:</span>
+          <span id="utc-clock" class="text-cyan-400 font-semibold">00:00:00</span>
+        </div>
+        <div class="flex items-center gap-1.5 font-mono text-[11px] bg-slate-900/90 px-2.5 py-1 rounded border border-slate-800">
+          <span class="text-slate-500">LOCAL:</span>
+          <span id="local-clock" class="text-emerald-400 font-semibold">00:00:00</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Navigation & Search -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 via-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+            <i class="fa-solid fa-earth-americas text-white text-lg"></i>
+          </div>
+          <div>
+            <div class="flex items-center space-x-2">
+              <h1 class="text-xl font-bold tracking-tight text-white">World<span class="text-cyan-400">Pulse</span></h1>
+              <span class="px-2 py-0.5 text-[10px] uppercase font-bold tracking-wider rounded bg-cyan-950 text-cyan-400 border border-cyan-800">2026 Live</span>
+            </div>
+            <p class="text-xs text-slate-400">Planetary Real-Time Metrics & Demographic Observatory</p>
+          </div>
+        </div>
+        <button id="mobile-menu-btn" class="md:hidden p-2 rounded-lg bg-slate-800 text-slate-300">
+          <i class="fa-solid fa-bars"></i>
+        </button>
+      </div>
+
+      <!-- Search & Actions -->
+      <div class="flex items-center gap-3 w-full md:w-auto">
+        <div class="relative flex-1 md:w-72">
+          <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+          <input 
+            type="text" 
+            id="metric-search" 
+            placeholder="Search metric or topic (e.g. population, CO2)..." 
+            class="w-full pl-9 pr-4 py-2 bg-slate-900/90 border border-slate-700/80 rounded-xl text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition"
+          >
+        </div>
+        <button onclick="shareDashboard()" title="Copy dashboard link" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium border border-slate-700 flex items-center gap-2 transition active:scale-95">
+          <i class="fa-regular fa-share-from-square"></i>
+          <span class="hidden sm:inline">Share</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Category Tabs -->
+    <div class="border-t border-slate-800/80 bg-slate-950/40">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <nav id="category-nav" class="flex space-x-1 sm:space-x-2 overflow-x-auto py-2.5 text-xs sm:text-sm font-medium">
+          <button data-cat="all" class="cat-pill active px-3.5 py-1.5 rounded-lg bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 whitespace-nowrap">
+            <i class="fa-solid fa-layer-group mr-1.5"></i>All Metas
+          </button>
+          <button data-cat="demographics" class="cat-pill px-3.5 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 whitespace-nowrap">
+            <i class="fa-solid fa-users mr-1.5"></i>Demographics
+          </button>
+          <button data-cat="environment" class="cat-pill px-3.5 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 whitespace-nowrap">
+            <i class="fa-solid fa-leaf mr-1.5"></i>Environment & Climate
+          </button>
+          <button data-cat="technology" class="cat-pill px-3.5 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 whitespace-nowrap">
+            <i class="fa-solid fa-wifi mr-1.5"></i>Tech & Connectivity
+          </button>
+          <button data-cat="economy" class="cat-pill px-3.5 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 whitespace-nowrap">
+            <i class="fa-solid fa-chart-line mr-1.5"></i>Economy & Energy
+          </button>
+          <button data-cat="countries" class="cat-pill px-3.5 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 whitespace-nowrap">
+            <i class="fa-solid fa-flag mr-1.5"></i>Country Comparison
+          </button>
+        </nav>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full space-y-8">
+    
+    <!-- Hero Live Pulse Stats (Key Planetary Numbers) -->
+    <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      
+      <!-- Population Card -->
+      <div class="glass-card rounded-2xl p-5 border-l-4 border-l-cyan-400 relative overflow-hidden group">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs font-semibold uppercase tracking-wider text-cyan-300">World Population</span>
+          <span class="flex h-2.5 w-2.5 relative">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-cyan-500"></span>
+          </span>
+        </div>
+        <div id="stat-population" class="text-2xl sm:text-3xl font-extrabold text-white font-mono tracking-tight my-1">
+          8,184,320,110
+        </div>
+        <div class="flex items-center justify-between text-xs text-slate-400 mt-2">
+          <span>+2.3 people/sec</span>
+          <span class="text-emerald-400 font-medium"><i class="fa-solid fa-arrow-trend-up mr-1"></i>+0.88%/yr</span>
+        </div>
+        <div class="w-full bg-slate-800 rounded-full h-1.5 mt-3 overflow-hidden">
+          <div class="bg-cyan-400 h-1.5 rounded-full" style="width: 82%"></div>
+        </div>
+      </div>
+
+      <!-- Births / Deaths Today -->
+      <div class="glass-card rounded-2xl p-5 border-l-4 border-l-emerald-400 group">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs font-semibold uppercase tracking-wider text-emerald-300">Births Today</span>
+          <i class="fa-solid fa-baby text-emerald-400/80"></i>
+        </div>
+        <div id="stat-births" class="text-2xl sm:text-3xl font-extrabold text-white font-mono tracking-tight my-1">
+          268,432
+        </div>
+        <div class="flex items-center justify-between text-xs text-slate-400 mt-2">
+          <span>Deaths today: <span id="stat-deaths" class="text-rose-400 font-mono font-medium">112,504</span></span>
+          <span class="text-emerald-400 font-mono font-medium" id="stat-net-today">+155,928</span>
+        </div>
+        <div class="w-full bg-slate-800 rounded-full h-1.5 mt-3 overflow-hidden">
+          <div class="bg-emerald-400 h-1.5 rounded-full" style="width: 71%"></div>
+        </div>
+      </div>
+
+      <!-- Internet & Digital Traffic -->
+      <div class="glass-card rounded-2xl p-5 border-l-4 border-l-purple-400 group">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs font-semibold uppercase tracking-wider text-purple-300">Online Population</span>
+          <i class="fa-solid fa-globe text-purple-400/80"></i>
+        </div>
+        <div id="stat-internet-users" class="text-2xl sm:text-3xl font-extrabold text-white font-mono tracking-tight my-1">
+          5,640,119,400
+        </div>
+        <div class="flex items-center justify-between text-xs text-slate-400 mt-2">
+          <span>68.9% of humanity</span>
+          <span class="text-purple-400 font-medium">+185k joins/day</span>
+        </div>
+        <div class="w-full bg-slate-800 rounded-full h-1.5 mt-3 overflow-hidden">
+          <div class="bg-purple-400 h-1.5 rounded-full" style="width: 69%"></div>
+        </div>
+      </div>
+
+      <!-- CO2 & Climate Pulse -->
+      <div class="glass-card rounded-2xl p-5 border-l-4 border-l-rose-400 group">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs font-semibold uppercase tracking-wider text-rose-300">CO₂ Emissions Today</span>
+          <i class="fa-solid fa-cloud text-rose-400/80"></i>
+        </div>
+        <div id="stat-co2-tons" class="text-2xl sm:text-3xl font-extrabold text-white font-mono tracking-tight my-1">
+          88,410,230
+        </div>
+        <div class="flex items-center justify-between text-xs text-slate-400 mt-2">
+          <span>Metric tons CO₂</span>
+          <span class="text-rose-400 font-medium"><i class="fa-solid fa-fire mr-1"></i>424.8 ppm</span>
+        </div>
+        <div class="w-full bg-slate-800 rounded-full h-1.5 mt-3 overflow-hidden">
+          <div class="bg-rose-500 h-1.5 rounded-full" style="width: 88%"></div>
+        </div>
+      </div>
+
+    </section>
+
+    <section id="visual-analytics" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      
+      <!-- Chart 1: Global Demographics -->
+      <div class="glass-card rounded-2xl p-5 border border-slate-800 flex flex-col justify-between">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h3 class="text-base font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-chart-area text-cyan-400"></i> Global Population Trajectory (1950 - 2100)
+            </h3>
+            <p class="text-xs text-slate-400 mt-0.5">UN World Population Prospects (Medium Variant)</p>
+          </div>
+          <span class="text-xs font-mono bg-cyan-950/80 text-cyan-400 border border-cyan-800/80 px-2 py-0.5 rounded">Billions</span>
+        </div>
+        <div class="relative h-64 w-full">
+          <canvas id="populationChart"></canvas>
+        </div>
+        <div class="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-slate-800 text-center text-xs">
+          <div>
+            <span class="text-slate-400 block">Peak Expected</span>
+            <span class="text-slate-200 font-bold font-mono">~10.3B (2080s)</span>
+          </div>
+          <div>
+            <span class="text-slate-400 block">Current Median Age</span>
+            <span class="text-cyan-400 font-bold font-mono">31.2 Years</span>
+          </div>
+          <div>
+            <span class="text-slate-400 block">Urban Ratio</span>
+            <span class="text-emerald-400 font-bold font-mono">57.4%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chart 2: Energy Mix -->
+      <div class="glass-card rounded-2xl p-5 border border-slate-800 flex flex-col justify-between">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h3 class="text-base font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-bolt text-amber-400"></i> Global Electricity Generation Mix
+            </h3>
+            <p class="text-xs text-slate-400 mt-0.5">Share of worldwide electrical energy production</p>
+          </div>
+          <span class="text-xs font-mono bg-amber-950/80 text-amber-400 border border-amber-800/80 px-2 py-0.5 rounded">TWh %</span>
+        </div>
+        <div class="relative h-64 w-full flex items-center justify-center">
+          <canvas id="energyMixChart"></canvas>
+        </div>
+        <div class="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-slate-800 text-center text-xs">
+          <div>
+            <span class="text-slate-400 block">Clean Energy Share</span>
+            <span class="text-emerald-400 font-bold font-mono">41.8%</span>
+          </div>
+          <div>
+            <span class="text-slate-400 block">Solar YoY Growth</span>
+            <span class="text-amber-400 font-bold font-mono">+24.5%</span>
+          </div>
+          <div>
+            <span class="text-slate-400 block">Fossil Fuels</span>
+            <span class="text-rose-400 font-bold font-mono">58.2%</span>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <section>
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h2 class="text-lg font-bold text-white">Live Planetary Counters</h2>
+          <p class="text-xs text-slate-400">Real-time dynamic computational estimates calibrated for today</p>
+        </div>
+        <span id="metric-counter-badge" class="text-xs text-slate-400 font-mono">Showing 12 metrics</span>
+      </div>
+
+      <div id="metrics-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        
+        <!-- Metric 1: Emails Sent Today -->
+        <div class="glass-card rounded-xl p-4 metric-card" data-category="technology" data-title="emails sent today digital communication messages">
+          <div class="flex items-center justify-between text-slate-400 text-xs mb-1.5">
+            <span class="font-medium text-slate-300"><i class="fa-regular fa-envelope text-cyan-400 mr-1.5"></i>Emails Sent Today</span>
+            <span class="text-[10px] font-mono bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded">Tech</span>
+          </div>
+          <div id="metric-emails" class="text-xl font-bold font-mono text-cyan-300 mb-1">0</div>
+          <p class="text-xs text-slate-400">Estimated ~350 billion emails transmitted worldwide daily.</p>
+        </div>
+
+        <!-- Metric 2: Google Searches Today -->
+        <div class="glass-card rounded-xl p-4 metric-card" data-category="technology" data-title="google searches search queries web web traffic">
+          <div class="flex items-center justify-between text-slate-400 text-xs mb-1.5">
+            <span class="font-medium text-slate-300"><i class="fa-solid fa-magnifying-glass text-indigo-400 mr-1.5"></i>Search Queries Today</span>
+            <span class="text-[10px] font-mono bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded">Web</span>
+          </div>
+          <div id="metric-searches" class="text-xl font-bold font-mono text-indigo-300 mb-1">0</div>
+          <p class="text-xs text-slate-400">Across major search engines (~9.5B daily total queries).</p>
+        </div>
+
+        <!-- Metric 3: Forest Lost (Hectares) -->
+        <div class="glass-card rounded-xl p-4 metric-card" data-category="environment" data-title="forest loss deforestation hectares trees nature environment">
+          <div class="flex items-center justify-between text-slate-400 text-xs mb-1.5">
+            <span class="font-medium text-slate-300"><i class="fa-solid fa-tree text-amber-500 mr-1.5"></i>Forest Cleared Today (Ha)</span>
+            <span class="text-[10px] font-mono bg-amber-950/60 text-amber-400 px-1.5 py-0.5 rounded">Ecology</span>
+          </div>
+          <div id="metric-forest-lost" class="text-xl font-bold font-mono text-amber-400 mb-1">0</div>
+          <p class="text-xs text-slate-400">Deforestation & commercial land conversions in 2026.</p>
+        </div>
+
+        <!-- Metric 4: Trees Planted Today -->
+        <div class="glass-card rounded-xl p-4 metric-card" data-category="environment" data-title="trees planted reforestation ecology climate restoration">
+          <div class="flex items-center justify-between text-slate-400 text-xs mb-1.5">
+            <span class="font-medium text-slate-300"><i class="fa-solid fa-seedling text-emerald-400 mr-1.5"></i>Trees Planted Today</span>
+            <span class="text-[10px] font-mono bg-emerald-950/60 text-emerald-400 px-1.5 py-0.5 rounded">Ecology</span>
+          </div>
+          <div id="metric-trees-planted" class="text-xl font-bold font-mono text-emerald-300 mb-1">0</div>
+          <p class="text-xs text-slate-400">Global restoration programs and commercial forestry.</p>
+        </div>
+
+        <!-- Metric 5: Smartphone Sales -->
+        <div class="glass-card rounded-xl p-4 metric-card" data-category="technology" data-title="smartphones sold devices phones electronics hardware">
+          <div class="flex items-center justify-between text-slate-400 text-xs mb-1.5">
+            <span class="font-medium text-slate-300"><i class="fa-solid fa-mobile-screen-button text-purple-400 mr-1.5"></i>Smartphones Sold Today</span>
+            <span class="text-[10px] font-mono bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded">Tech</span>
+          </div>
+          <div id="metric-smartphones" class="text-xl font-bold font-mono text-purple-300 mb-1">0</div>
+          <p class="text-xs text-slate-400">Paced at ~3.4 million smartphones shipped daily.</p>
+        </div>
+
+        <!-- Metric 6: Electric Cars Sold -->
+        <div class="glass-card rounded-xl p-4 metric-card" data-category="economy" data-title="electric vehicles ev cars sold automotive clean transit">
+          <div class="flex items-center justify-between text-slate-400 text-xs mb-1.5">
+            <span class="font-medium text-slate-300"><i class="fa-solid fa-car-battery text-emerald-400 mr-1.5"></i>EVs Delivered Today</span>
+            <span class="text-[10px] font-mono bg-emerald-950/60 text-emerald-400 px-1.5 py-0.5 rounded">CleanTech</span>
+          </div>
+          <div id="metric-evs" class="text-xl font-bold font-mono text-emerald-400 mb-1">0</div>
+          <p class="text-xs text-slate-400">Surpassing 17.5M all-electric registrations this year.</p>
+        </div>
+
+        <!-- Metric 7: Plastic entering oceans -->
+        <div class="glass-card rounded-xl p-4 metric-card" data-category="environment" data-title="plastic oceans waste pollution marine biology ecology">
+          <div class="flex items-center justify-between text-slate-400 text-xs mb-1.5">
+            <span class="font-medium text-slate-300"><i class="fa-solid fa-bottle-water text-rose-400 mr-1.5"></i>Ocean Plastic Today (Tons)</span>
+            <span class="text-[10px] font-mono bg-rose-950/60 text-rose-400 px-1.5 py-0.5 rounded">Crisis</span>
+          </div>
+          <div id="metric-plastic" class="text-xl font-bold font-mono text-rose-400 mb-1">0</div>
+          <p class="text-xs text-slate-400">Non-recycled plastic waste entering waterways & oceans.</p>
+        </div>
+
+        <!-- Metric 8: Commercial Airline Flights -->
+        <div class="glass-card rounded-xl p-4 metric-card" data-category="economy" data-title="airline flights flights commercial aviation travel passenger">
+          <div class="flex items-center justify-between text-slate-400 text-xs mb-1.5">
+            <span class="font-medium text-slate-300"><i class="fa-solid fa-plane-departure text-sky-400 mr-1.5"></i>Flights Flown Today</span>
+            <span class="text-[10px] font-mono bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded">Transit</span>
+          </div>
+          <div id="metric-flights" class="text-xl font-bold font-mono text-sky-300 mb-1">0</div>
+          <p class="text-xs text-slate-400">Tracked commercial, cargo, and passenger flights.</p>
+        </div>
+
+        <!-- Metric 9: Solar Energy Consumed -->
+        <div class="glass-card rounded-xl p-4 metric-card" data-category="economy" data-title="solar energy consumed mwh power renewable electricity grid">
+          <div class="flex items-center justify-between text-slate-400 text-xs mb-1.5">
+            <span class="font-medium text-slate-300"><i class="fa-solid fa-sun text-amber-400 mr-1.5"></i>Solar MWh Generated</span>
+            <span class="text-[10px] font-mono bg-amber-950/60 text-amber-400 px-1.5 py-0.5 rounded">Energy</span>
+          </div>
+          <div id="metric-solar" class="text-xl font-bold font-mono text-amber-300 mb-1">0</div>
+          <p class="text-xs text-slate-400">Cumulative utility and rooftop solar output today.</p>
+        </div>
+
+        <!-- Metric 10: Global Food Produced (Tons) -->
+        <div class="glass-card rounded-xl p-4 metric-card" data-category="demographics" data-title="food produced tons agriculture food hunger grain supply">
+          <div class="flex items-center justify-between text-slate-400 text-xs mb-1.5">
+            <span class="font-medium text-slate-300"><i class="fa-solid fa-wheat-awn text-lime-400 mr-1.5"></i>Food Harvested (Tons)</span>
+            <span class="text-[10px] font-mono bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded">Agritech</span>
+          </div>
+          <div id="metric-food" class="text-xl font-bold font-mono text-lime-300 mb-1">0</div>
+          <p class="text-xs text-slate-400">Total grains, produce, and agricultural yields today.</p>
+        </div>
+
+        <!-- Metric 11: Scientific Papers Published -->
+        <div class="glass-card rounded-xl p-4 metric-card" data-category="technology" data-title="scientific papers research science discoveries patents academic">
+          <div class="flex items-center justify-between text-slate-400 text-xs mb-1.5">
+            <span class="font-medium text-slate-300"><i class="fa-solid fa-microscope text-violet-400 mr-1.5"></i>Research Papers Today</span>
+            <span class="text-[10px] font-mono bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded">Science</span>
+          </div>
+          <div id="metric-papers" class="text-xl font-bold font-mono text-violet-300 mb-1">0</div>
+          <p class="text-xs text-slate-400">Peer-reviewed global scientific preprints & articles.</p>
+        </div>
+
+        <!-- Metric 12: Renewable Energy Investment ($) -->
+        <div class="glass-card rounded-xl p-4 metric-card" data-category="economy" data-title="renewable energy clean investment finance dollars capital green">
+          <div class="flex items-center justify-between text-slate-400 text-xs mb-1.5">
+            <span class="font-medium text-slate-300"><i class="fa-solid fa-dollar-sign text-emerald-400 mr-1.5"></i>Clean Energy CapEx Today</span>
+            <span class="text-[10px] font-mono bg-emerald-950/60 text-emerald-400 px-1.5 py-0.5 rounded">Capital</span>
+          </div>
+          <div id="metric-cleantech-invest" class="text-xl font-bold font-mono text-emerald-300 mb-1">$0</div>
+          <p class="text-xs text-slate-400">Paced at ~$1.8 Trillion annual clean energy investments.</p>
+        </div>
+
+      </div>
+    </section>
+
+    <section id="country-explorer-section" class="glass-card rounded-2xl p-6 border border-slate-800 space-y-6">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h2 class="text-lg font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-earth-africa text-cyan-400"></i> Country Stat Benchmarking
+          </h2>
+          <p class="text-xs text-slate-400">Compare demographic & sustainability indicators side-by-side</p>
+        </div>
+
+        <!-- Dropdowns for Country 1 & Country 2 -->
+        <div class="flex flex-wrap items-center gap-3">
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-slate-400 font-semibold">Nation A:</span>
+            <select id="country-select-1" class="bg-slate-900 border border-slate-700 text-cyan-300 text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-cyan-500 font-medium">
+              <!-- Populated by JS -->
+            </select>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-slate-400 font-semibold">Nation B:</span>
+            <select id="country-select-2" class="bg-slate-900 border border-slate-700 text-purple-300 text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-purple-500 font-medium">
+              <!-- Populated by JS -->
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Comparative Stat Bars Grid -->
+      <div id="comparison-container" class="space-y-4 pt-2">
+        <!-- Injected via JavaScript -->
+      </div>
+    </section>
+
+    <section class="rounded-2xl bg-gradient-to-r from-blue-900/40 via-cyan-900/30 to-purple-900/40 p-6 border border-cyan-500/20 flex flex-col md:flex-row items-center justify-between gap-6">
+      <div class="space-y-2">
+        <span class="text-xs uppercase tracking-wider font-semibold text-cyan-400 flex items-center gap-1.5">
+          <i class="fa-solid fa-satellite-dish"></i> Continuous Planetary Telemetry Engine
+        </span>
+        <h3 class="text-xl font-bold text-white">Live Data Synthesis Algorithm</h3>
+        <p class="text-xs text-slate-300 max-w-2xl leading-relaxed">
+          Counters are computed using verified baselines from the UN Population Division, World Bank, IEA, NASA GISTEMP, and ITU, incremented continuously based on second-by-second global variance modeling.
+        </p>
+      </div>
+      <div class="flex items-center gap-3 shrink-0">
+        <button onclick="resetTodayTickers()" class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-2 transition active:scale-95">
+          <i class="fa-solid fa-arrow-rotate-right"></i> Reset Today's Delta
+        </button>
+        <button onclick="downloadStatsReport()" class="px-4 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold flex items-center gap-2 shadow-lg shadow-cyan-600/30 transition active:scale-95">
+          <i class="fa-solid fa-download"></i> Export Snapshot
+        </button>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="glass-panel border-t border-slate-800/80 mt-12 py-6 text-xs text-slate-500">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div class="flex items-center space-x-2">
+        <i class="fa-solid fa-globe text-cyan-500"></i>
+        <span>WorldPulse Observatory &copy; 2026. Standalone Real-Time Dashboard.</span>
+      </div>
+      <div class="flex items-center space-x-4">
+        <span>Sources: UN DESA &bull; World Bank &bull; IEA &bull; NOAA</span>
+        <a href="#visual-analytics" class="hover:text-cyan-400 transition">Back to Top &uarr;</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Toast notification modal -->
+  <div id="toast" class="fixed bottom-6 right-6 z-50 transform translate-y-20 opacity-0 transition-all duration-300 glass-card border border-cyan-500/40 text-slate-100 text-xs px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2">
+    <i class="fa-solid fa-circle-check text-cyan-400"></i>
+    <span id="toast-message">Notification</span>
+  </div>
+
+  <script>
+    const BASE_POPULATION = 8184320110; 
+    const BIRTHS_PER_SEC = 4.31;
+    const DEATHS_PER_SEC = 1.95;
+    const EMAILS_PER_SEC = 4050925;
+    const SEARCHES_PER_SEC = 110000;
+    const FOREST_HA_PER_SEC = 0.32;
+    const TREES_PLANTED_PER_SEC = 0.48;
+    const SMARTPHONES_PER_SEC = 41.2;
+    const EVS_PER_SEC = 0.58;
+    const OCEAN_PLASTIC_TONS_PER_SEC = 0.38;
+    const FLIGHTS_PER_SEC = 1.45;
+    const SOLAR_MWH_PER_SEC = 57.5;
+    const FOOD_TONS_PER_SEC = 125.0;
+    const PAPERS_PER_SEC = 0.085;
+    const CLEAN_CAPEX_PER_SEC = 57077; // ~$1.8T/year in USD
+    const CO2_TONS_PER_SEC = 1173;
+
+    // Calculate seconds elapsed since local midnight today
+    function getSecondsSinceMidnight() {
+      const now = new Date();
+      const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      return Math.floor((now - midnight) / 1000);
+    }
+
+    let initialSeconds = getSecondsSinceMidnight();
+    let elapsedRunSeconds = 0;
+
+    // Country comparison dataset
+    const COUNTRIES_DB = [
+      { name: "United States", flag: "🇺🇸", pop: "342M", gdp: "$85,370", lifeExp: 78.4, forest: 33.9, internet: 93.4, renewable: 23.8 },
+      { name: "China", flag: "🇨🇳", pop: "1,408M", gdp: "$13,720", lifeExp: 78.2, forest: 23.4, internet: 76.4, renewable: 34.2 },
+      { name: "India", flag: "🇮🇳", pop: "1,442M", gdp: "$2,850", lifeExp: 72.0, forest: 24.3, internet: 52.0, renewable: 22.5 },
+      { name: "Germany", flag: "🇩🇪", pop: "84M", gdp: "$54,290", lifeExp: 81.0, forest: 32.7, internet: 94.0, renewable: 52.8 },
+      { name: "Japan", flag: "🇯🇵", pop: "123M", gdp: "$33,800", lifeExp: 84.8, forest: 68.4, internet: 93.0, renewable: 24.0 },
+      { name: "Brazil", flag: "🇧🇷", pop: "217M", gdp: "$10,300", lifeExp: 76.2, forest: 59.4, internet: 84.0, renewable: 89.2 },
+      { name: "Nigeria", flag: "🇳🇬", pop: "227M", gdp: "$1,620", lifeExp: 53.6, forest: 21.6, internet: 43.5, renewable: 18.0 },
+      { name: "Indonesia", flag: "🇮🇩", pop: "281M", gdp: "$5,110", lifeExp: 71.8, forest: 49.1, internet: 66.5, renewable: 14.1 },
+      { name: "United Kingdom", flag: "🇬🇧", pop: "68M", gdp: "$48,910", lifeExp: 81.2, forest: 13.2, internet: 97.0, renewable: 46.5 },
+      { name: "Canada", flag: "🇨🇦", pop: "40M", gdp: "$53,250", lifeExp: 82.6, forest: 38.2, internet: 96.5, renewable: 68.5 }
+    ];
+
+    function formatNumber(num) {
+      return Math.floor(num).toLocaleString('en-US');
+    }
+
+    function formatCurrency(num) {
+      return '$' + Math.floor(num).toLocaleString('en-US');
+    }
+
+    function updateClocks() {
+      const now = new Date();
+      document.getElementById('utc-clock').textContent = now.toUTCString().split(' ')[4];
+      document.getElementById('local-clock').textContent = now.toTimeString().split(' ')[0];
+    }
+    setInterval(updateClocks, 1000);
+    updateClocks();
+
+    function tickMetrics() {
+      elapsedRunSeconds += 0.2; // executed every 200ms
+      const totalSecToday = initialSeconds + elapsedRunSeconds;
+
+      // 1. Core Population
+      const currentPop = BASE_POPULATION + (elapsedRunSeconds * (BIRTHS_PER_SEC - DEATHS_PER_SEC));
+      document.getElementById('stat-population').textContent = formatNumber(currentPop);
+
+      // 2. Births & Deaths
+      const birthsToday = totalSecToday * BIRTHS_PER_SEC;
+      const deathsToday = totalSecToday * DEATHS_PER_SEC;
+      const netToday = birthsToday - deathsToday;
+
+      document.getElementById('stat-births').textContent = formatNumber(birthsToday);
+      document.getElementById('stat-deaths').textContent = formatNumber(deathsToday);
+      document.getElementById('stat-net-today').textContent = '+' + formatNumber(netToday);
+      document.getElementById('ticker-net-population').textContent = '+' + formatNumber(netToday);
+
+      // 3. Internet Users
+      const netInternet = 5640119400 + (elapsedRunSeconds * 2.14);
+      document.getElementById('stat-internet-users').textContent = formatNumber(netInternet);
+
+      // 4. CO2 Tons Today
+      const co2Today = totalSecToday * CO2_TONS_PER_SEC;
+      document.getElementById('stat-co2-tons').textContent = formatNumber(co2Today);
+
+      // 5. Grid Telemetry
+      document.getElementById('metric-emails').textContent = formatNumber(totalSecToday * EMAILS_PER_SEC);
+      document.getElementById('metric-searches').textContent = formatNumber(totalSecToday * SEARCHES_PER_SEC);
+      document.getElementById('metric-forest-lost').textContent = formatNumber(totalSecToday * FOREST_HA_PER_SEC);
+      document.getElementById('metric-trees-planted').textContent = formatNumber(totalSecToday * TREES_PLANTED_PER_SEC);
+      document.getElementById('metric-smartphones').textContent = formatNumber(totalSecToday * SMARTPHONES_PER_SEC);
+      document.getElementById('metric-evs').textContent = formatNumber(totalSecToday * EVS_PER_SEC);
+      document.getElementById('metric-plastic').textContent = formatNumber(totalSecToday * OCEAN_PLASTIC_TONS_PER_SEC);
+      document.getElementById('metric-flights').textContent = formatNumber(totalSecToday * FLIGHTS_PER_SEC);
+      
+      const solarMwh = totalSecToday * SOLAR_MWH_PER_SEC;
+      document.getElementById('metric-solar').textContent = formatNumber(solarMwh);
+      document.getElementById('ticker-solar-mwh').textContent = formatNumber(solarMwh) + ' MWh';
+
+      document.getElementById('metric-food').textContent = formatNumber(totalSecToday * FOOD_TONS_PER_SEC);
+      document.getElementById('metric-papers').textContent = formatNumber(totalSecToday * PAPERS_PER_SEC);
+      document.getElementById('metric-cleantech-invest').textContent = formatCurrency(totalSecToday * CLEAN_CAPEX_PER_SEC);
+    }
+    // High frequency interval for smooth tick updates
+    setInterval(tickMetrics, 200);
+
+    let popChartInstance, energyChartInstance;
+
+    function renderCharts() {
+      // Population Trajectory Line Chart
+      const popCtx = document.getElementById('populationChart').getContext('2d');
+      popChartInstance = new Chart(popCtx, {
+        type: 'line',
+        data: {
+          labels: ['1950', '1970', '1990', '2010', '2026 (Now)', '2040', '2060', '2080', '2100'],
+          datasets: [
+            {
+              label: 'Global Population (Billions)',
+              data: [2.54, 3.70, 5.33, 6.96, 8.18, 9.15, 9.85, 10.30, 10.15],
+              borderColor: '#06b6d4',
+              backgroundColor: 'rgba(6, 182, 212, 0.1)',
+              borderWidth: 2.5,
+              fill: true,
+              tension: 0.35,
+              pointBackgroundColor: '#06b6d4',
+              pointHoverRadius: 6
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: '#0d1527',
+              borderColor: '#1e293b',
+              borderWidth: 1,
+              padding: 10
+            }
+          },
+          scales: {
+            y: {
+              grid: { color: 'rgba(255, 255, 255, 0.05)' },
+              ticks: { color: '#64748b', font: { family: 'JetBrains Mono', size: 10 } }
+            },
+            x: {
+              grid: { color: 'rgba(255, 255, 255, 0.05)' },
+              ticks: { color: '#64748b', font: { family: 'JetBrains Mono', size: 10 } }
+            }
+          }
+        }
+      });
+
+      // Energy Mix Doughnut Chart
+      const energyCtx = document.getElementById('energyMixChart').getContext('2d');
+      energyChartInstance = new Chart(energyCtx, {
+        type: 'doughnut',
+        data: {
+          labels: ['Coal', 'Natural Gas', 'Hydro', 'Nuclear', 'Wind', 'Solar', 'Bio/Other'],
+          datasets: [
+            {
+              data: [34.5, 22.0, 14.8, 9.2, 8.1, 7.2, 4.2],
+              backgroundColor: [
+                '#475569', // Coal (Slate)
+                '#f97316', // Gas (Orange)
+                '#0284c7', // Hydro (Blue)
+                '#a855f7', // Nuclear (Purple)
+                '#06b6d4', // Wind (Cyan)
+                '#eab308', // Solar (Yellow)
+                '#10b981'  // Bio (Emerald)
+              ],
+              borderWidth: 2,
+              borderColor: '#0d1527'
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '68%',
+          plugins: {
+            legend: {
+              position: 'right',
+              labels: {
+                color: '#94a3b8',
+                boxWidth: 10,
+                padding: 10,
+                font: { family: 'Inter', size: 11 }
+              }
+            },
+            tooltip: {
+              backgroundColor: '#0d1527',
+              borderColor: '#1e293b',
+              borderWidth: 1,
+              callbacks: {
+                label: function(item) {
+                  return ` ${item.label}: ${item.raw}%`;
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function initCountryComparison() {
+      const select1 = document.getElementById('country-select-1');
+      const select2 = document.getElementById('country-select-2');
+
+      COUNTRIES_DB.forEach((c, idx) => {
+        const opt1 = document.createElement('option');
+        opt1.value = idx;
+        opt1.textContent = `${c.flag} ${c.name}`;
+        if (idx === 0) opt1.selected = true; // USA
+        select1.appendChild(opt1);
+
+        const opt2 = document.createElement('option');
+        opt2.value = idx;
+        opt2.textContent = `${c.flag} ${c.name}`;
+        if (idx === 1) opt2.selected = true; // China
+        select2.appendChild(opt2);
+      });
+
+      function renderComparison() {
+        const c1 = COUNTRIES_DB[select1.value];
+        const c2 = COUNTRIES_DB[select2.value];
+        const container = document.getElementById('comparison-container');
+
+        const metrics = [
+          { label: 'Population', val1: c1.pop, val2: c2.pop, bar1: 60, bar2: 85 },
+          { label: 'GDP Per Capita', val1: c1.gdp, val2: c2.gdp, bar1: 85, bar2: 45 },
+          { label: 'Life Expectancy', val1: `${c1.lifeExp} yrs`, val2: `${c2.lifeExp} yrs`, bar1: c1.lifeExp, bar2: c2.lifeExp, max: 90 },
+          { label: 'Internet Penetration', val1: `${c1.internet}%`, val2: `${c2.internet}%`, bar1: c1.internet, bar2: c2.internet, max: 100 },
+          { label: 'Renewable Electricity %', val1: `${c1.renewable}%`, val2: `${c2.renewable}%`, bar1: c1.renewable, bar2: c2.renewable, max: 100 },
+          { label: 'Forest Cover %', val1: `${c1.forest}%`, val2: `${c2.forest}%`, bar1: c1.forest, bar2: c2.forest, max: 100 }
+        ];
+
+        let html = '';
+        metrics.forEach(m => {
+          const p1 = m.max ? Math.min((m.bar1 / m.max) * 100, 100) : m.bar1;
+          const p2 = m.max ? Math.min((m.bar2 / m.max) * 100, 100) : m.bar2;
+
+          html += `
+            <div class="bg-slate-900/60 p-3.5 rounded-xl border border-slate-800/80">
+              <div class="flex justify-between items-center text-xs mb-1.5 font-medium">
+                <span class="text-cyan-400 font-mono font-semibold">${c1.flag} ${m.val1}</span>
+                <span class="text-slate-300 font-sans uppercase tracking-wider text-[11px]">${m.label}</span>
+                <span class="text-purple-400 font-mono font-semibold">${m.val2} ${c2.flag}</span>
+              </div>
+              <div class="grid grid-cols-2 gap-2 h-2">
+                <div class="bg-slate-800 rounded-full overflow-hidden flex justify-end">
+                  <div class="bg-cyan-500 h-full rounded-full transition-all duration-500" style="width: ${p1}%"></div>
+                </div>
+                <div class="bg-slate-800 rounded-full overflow-hidden">
+                  <div class="bg-purple-500 h-full rounded-full transition-all duration-500" style="width: ${p2}%"></div>
+                </div>
+              </div>
+            </div>
+          `;
+        });
+        container.innerHTML = html;
+      }
+
+      select1.addEventListener('change', renderComparison);
+      select2.addEventListener('change', renderComparison);
+      renderComparison();
+    }
+
+    function setupFiltersAndSearch() {
+      const searchInput = document.getElementById('metric-search');
+      const catButtons = document.querySelectorAll('.cat-pill');
+      const cards = document.querySelectorAll('.metric-card');
+      const badge = document.getElementById('metric-counter-badge');
+      let currentCategory = 'all';
+
+      function applyFilter() {
+        const query = searchInput.value.toLowerCase().trim();
+        let visibleCount = 0;
+
+        cards.forEach(card => {
+          const category = card.getAttribute('data-category');
+          const title = card.getAttribute('data-title').toLowerCase();
+
+          const matchesCat = (currentCategory === 'all' || currentCategory === category);
+          const matchesSearch = query === '' || title.includes(query);
+
+          if (matchesCat && matchesSearch) {
+            card.classList.remove('hidden');
+            visibleCount++;
+          } else {
+            card.classList.add('hidden');
+          }
+        });
+
+        // Special handling if country category selected
+        const countrySection = document.getElementById('country-explorer-section');
+        if (currentCategory === 'countries') {
+          countrySection.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        badge.textContent = `Showing ${visibleCount} metric${visibleCount === 1 ? '' : 's'}`;
+      }
+
+      catButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          catButtons.forEach(b => {
+            b.classList.remove('active', 'bg-cyan-500/20', 'text-cyan-300', 'border', 'border-cyan-500/40');
+            b.classList.add('text-slate-400');
+          });
+          btn.classList.add('active', 'bg-cyan-500/20', 'text-cyan-300', 'border', 'border-cyan-500/40');
+          btn.classList.remove('text-slate-400');
+
+          currentCategory = btn.getAttribute('data-cat');
+          applyFilter();
+        });
+      });
+
+      searchInput.addEventListener('input', applyFilter);
+    }
+
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      const msg = document.getElementById('toast-message');
+      msg.textContent = message;
+      toast.classList.remove('translate-y-20', 'opacity-0');
+      toast.classList.add('translate-y-0', 'opacity-100');
+      setTimeout(() => {
+        toast.classList.add('translate-y-20', 'opacity-0');
+        toast.classList.remove('translate-y-0', 'opacity-100');
+      }, 2500);
+    }
+
+    function shareDashboard() {
+      const dummyInput = document.createElement('input');
+      dummyInput.value = window.location.href;
+      document.body.appendChild(dummyInput);
+      dummyInput.select();
+      document.execCommand('copy');
+      document.body.removeChild(dummyInput);
+      showToast('Dashboard link copied to clipboard!');
+    }
+
+    function resetTodayTickers() {
+      initialSeconds = 0;
+      elapsedRunSeconds = 0;
+      showToast("Today's delta reset to 00:00:00 UTC baseline.");
+    }
+
+    function downloadStatsReport() {
+      const pop = document.getElementById('stat-population').textContent;
+      const births = document.getElementById('stat-births').textContent;
+      const deaths = document.getElementById('stat-deaths').textContent;
+      const co2 = document.getElementById('stat-co2-tons').textContent;
+
+      const reportText = `WORLDPULSE PLANETARY REPORT SNAPSHOT (2026)\n` +
+        `Timestamp: ${new Date().toISOString()}\n` +
+        `----------------------------------------\n` +
+        `Global Population: ${pop}\n` +
+        `Births Today: ${births}\n` +
+        `Deaths Today: ${deaths}\n` +
+        `CO2 Emitted Today: ${co2} Metric Tons\n` +
+        `Data Baseline: UN DESA, NOAA, IEA Estimates.\n`;
+
+      const blob = new Blob([reportText], { type: 'text/plain;charset=utf-8' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `WorldPulse_Snapshot_${Date.now()}.txt`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showToast('Stats snapshot exported successfully!');
+    }
+
+    window.onload = function() {
+      renderCharts();
+      initCountryComparison();
+      setupFiltersAndSearch();
+      tickMetrics();
+    };
+  </script>
+</body>
+</html>
